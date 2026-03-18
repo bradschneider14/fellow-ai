@@ -1,4 +1,7 @@
 from langgraph.graph import StateGraph, START, END
+import os
+import tempfile
+import requests
 from fellowai.workflow.state import GraphState
 from fellowai.agents.lab_director import LabDirector
 from fellowai.agents.research_analyst import ResearchAnalyst
@@ -12,14 +15,25 @@ librarian = Librarian()
 
 def initiate_project_node(state: GraphState) -> GraphState:
     print("--- Node: Lab Director Initiating Project ---")
-    metadata = lab_director.extract_metadata(state["raw_text"])
+    pdf_source = state["pdf_source"]
+    local_path = pdf_source
+    
+    if pdf_source.startswith("http://") or pdf_source.startswith("https://"):
+        print(f"Downloading PDF from {pdf_source}...")
+        response = requests.get(pdf_source)
+        response.raise_for_status()
+        fd, local_path = tempfile.mkstemp(suffix=".pdf")
+        with os.fdopen(fd, 'wb') as f:
+            f.write(response.content)
+            
+    metadata = lab_director.extract_metadata(local_path)
     project = ResearchProject(metadata=metadata)
-    return {"project": project}
+    return {"project": project, "local_pdf_path": local_path}
 
 def summarize_paper_node(state: GraphState) -> GraphState:
     print("--- Node: Research Analyst Summarizing Paper ---")
     project = state["project"]
-    summary = research_analyst.summarize_paper(project.metadata.title, state["raw_text"])
+    summary = research_analyst.summarize_paper(project.metadata.title, state["local_pdf_path"])
     project.summary = summary
     return {"project": project}
 
@@ -28,7 +42,7 @@ def extract_citations_node(state: GraphState) -> GraphState:
     project = state["project"]
     # Provide the summary findings and the raw text so Librarian knows what citations to look for
     citations = librarian.extract_citations(
-        state["raw_text"],
+        state["local_pdf_path"],
         project.summary.key_findings if project.summary else []
     )
     if project.summary:

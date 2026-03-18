@@ -3,6 +3,7 @@ from fellowai.models.paper import ResearchProject
 
 class GraphState(TypedDict):
     """Represents the state of our LangGraph workflow."""
-    raw_text: str
+    pdf_source: str
+    local_pdf_path: Optional[str]
     project: Optional[ResearchProject]
     error: Optional[str]

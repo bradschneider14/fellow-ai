@@ -6,9 +6,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fellowai.workflow.graph import app
+import logging
+from crewai.events.utils.console_formatter import set_suppress_console_output
 
 def main():
-
     if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("XAI_API_KEY"):
         print("Please set the OPENAI_API_KEY or XAI_API_KEY environment variable to run the agents.")
         print("Example: export XAI_API_KEY='xai-...'")
@@ -16,23 +17,14 @@ def main():
 
     print("--- FellowAI: LangGraph + CrewAI Workflow ---")
     
-    sample_text = """
-    Attention Is All You Need
-    Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, Illia Polosukhin
-    
-    Abstract
-    The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.
-    
-    1 Introduction
-    Recurrent neural networks, long short-term memory and gated recurrent neural networks in particular, have been firmly established as state of the art approaches in sequence modeling and transduction problems such as language modeling and machine translation.
-    ...
-    [References]
-    [1] Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. Neural machine translation by jointly learning to align and translate. CoRR, abs/1409.0473, 2014.
-    [2] Sepp Hochreiter and Jürgen Schmidhuber. Long short-term memory. Neural computation, 9(8):1735–1780, 1997.
-    """
+    # Pass the URL to the famous "Attention Is All You Need" paper
+    # sample_pdf_url = "https://arxiv.org/pdf/1706.03762.pdf"
+    sample_pdf_url = "https://arxiv.org/pdf/2506.06718"
+
     
     initial_state = {
-        "raw_text": sample_text,
+        "pdf_source": sample_pdf_url,
+        "local_pdf_path": None,
         "project": None,
         "error": None
     }

@@ -1,7 +1,10 @@
 pydantic>=2.0.0
 crewai[litellm]
+crewai-tools
 langgraph
 langchain-openai
+langchain-community
+pypdf
 build
 pytest
 python-dotenv

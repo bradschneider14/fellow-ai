@@ -30,8 +30,11 @@ cp .env.example .env
 # XAI_API_KEY="your-grok-key"
 # OPENAI_API_KEY="your-openai-key"
 
-# Run the app
+# Run the app (quiet by default)
 python -m fellowai.main
+
+# Run the app with visible AI thought boundaries and tool logging
+DEBUG_TOOLS=1 python -m fellowai.main
 
 # Run tests
 pytest

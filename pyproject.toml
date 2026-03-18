@@ -14,8 +14,11 @@ authors = [
 dependencies = [
     "pydantic>=2.0.0",
     "crewai[litellm]",
+    "crewai-tools",
     "langgraph",
     "langchain-openai",
+    "langchain-community",
+    "pypdf",
     "python-dotenv"
 ]
 
