@@ -7,3 +7,5 @@ class GraphState(TypedDict):
     local_pdf_path: Optional[str]
     project: Optional[ResearchProject]
     error: Optional[str]
+    human_decision: Optional[str]
+    skip_research: Optional[bool]

@@ -9,7 +9,8 @@ class Citation(BaseModel):
 class PaperSummary(BaseModel):
     title: str
     abstract_summary: str
-    key_findings: List[str]
+    architecture_details: List[str]
+    performance_metrics: List[str]
     citations: List[Citation] = Field(default_factory=list)
 
 class PaperMetadata(BaseModel):
@@ -18,7 +19,18 @@ class PaperMetadata(BaseModel):
     publication_date: Optional[str] = None
     url: Optional[str] = None
 
+class FinalReport(BaseModel):
+    feasibility: str
+    performance_metrics: List[str]
+    implementation_details: List[str]
+    pitfalls_and_ambiguities: List[str]
+
+class ArchitecturalPlan(BaseModel):
+    data_strategy: str
+    model_implementation_plan: str
+
 class ResearchProject(BaseModel):
     metadata: PaperMetadata
     summary: Optional[PaperSummary] = None
-    recommendation: Optional[str] = None
+    report: Optional[FinalReport] = None
+    architectural_plan: Optional[ArchitecturalPlan] = None

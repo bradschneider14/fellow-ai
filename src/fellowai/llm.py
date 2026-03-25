@@ -15,12 +15,24 @@ def get_llm(temperature: float = 0.0) -> LLM:
         if not xai_key:
             raise ValueError("XAI_API_KEY is not set or is empty.")
             
-        # We use the litellm 'xai/' prefix to tell CrewAI's litellm fallback 
-        # to route to xAI correctly using the provided api_key.
         return LLM(
             model="xai/grok-4-1-fast-reasoning",
             api_key=xai_key,
-            temperature=temperature
+            temperature=temperature,
+            max_tokens=4096
+        )
+    
+    # Check for Gemini (Google) if provided explicitly
+    elif provider == "gemini" or os.environ.get("GOOGLE_API_KEY"):
+        google_key = os.environ.get("GOOGLE_API_KEY")
+        if not google_key:
+             raise ValueError("GOOGLE_API_KEY is not set.")
+             
+        return LLM(
+            model="gemini/gemini-2.0-flash",
+            api_key=google_key,
+            temperature=temperature,
+            max_tokens=4096
         )
     
     # Fallback to OpenAI
@@ -31,7 +43,8 @@ def get_llm(temperature: float = 0.0) -> LLM:
         return LLM(
             model="gpt-4o-mini",
             api_key=openai_key,
-            temperature=temperature
+            temperature=temperature,
+            max_tokens=4096
         )
     
     raise ValueError("No valid API key found. Please define XAI_API_KEY or OPENAI_API_KEY in your .env.")

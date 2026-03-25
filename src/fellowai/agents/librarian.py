@@ -19,24 +19,25 @@ class Librarian:
         self.llm = llm or get_llm(temperature=0.0)
         debug_mode = os.environ.get("DEBUG_TOOLS", "0") == "1"
         self.agent = Agent(
-            role='Academic Librarian',
-            goal='Identify and extract key citations and references from research papers.',
-            backstory='You are a meticulous librarian who excels at tracking down sources, references, and understanding the context of citations within academic texts.',
+            role='ML Implementation Research Librarian',
+            goal='Identify and extract key citations that likely contain missing ML implementation details, prior architectures, or baseline codebases.',
+            backstory='You are a meticulous technical librarian. You know that papers often omit layer details by citing previous work. Your job is to find those specific citations so the engineering team knows where to look for the missing puzzle pieces.',
             llm=self.llm,
             verbose=debug_mode
         )
 
-    def extract_citations(self, pdf_path: str, findings: List[str]) -> List[Citation]:
-        findings_str = "\\n- ".join(findings)
+    def extract_citations(self, pdf_path: str, extraction_context: List[str]) -> List[Citation]:
+        context_str = "\\n- ".join(extraction_context)
         pdf_tool = get_pdf_tool(pdf_path)
         
         search_task = Task(
             description=dedent(f"""\
-                You MUST use your PDFSearchTool to search the document for 2-4 key citations that seem most relevant to these findings:
-                - {findings_str}
+                You MUST use your PDFSearchTool to search the document for 2-4 key citations that the authors rely on for their model architecture, baselines, or datasets:
+                Here are the implementation details and metrics extracted so far to give you context:
+                - {context_str}
                 DO NOT guess. You must formulate a search_query to search the document.
                 
-                For each citation, provide the text of the citation exactly as it appears in the bibliography/references section, its source/authors, and why it is relevant to the finding.
+                For each citation, provide the text of the citation exactly as it appears in the bibliography/references section, its source/authors, and why it is relevant to the engineering team (e.g., 'contains the baseline ResNet implementation they modified').
                 """),
             expected_output="A raw text compilation of 2-4 key citations and their contexts.",
             agent=self.agent,
@@ -55,7 +56,15 @@ class Librarian:
         crew = Crew(agents=[self.agent], tasks=[search_task, format_task], verbose=debug_mode)
         result = crew.kickoff()
         
-        match = re.search(r'\{.*\}', result.raw, re.DOTALL)
-        json_str = match.group(0) if match else result.raw
-        final_list = CitationList.model_validate_json(json_str)
-        return final_list.citations if final_list else []
+        # Robustly extract JSON from the output
+        json_str = result.raw
+        match = re.search(r'(\{.*\})', result.raw, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+            
+        try:
+            final_list = CitationList.model_validate_json(json_str)
+            return final_list.citations if final_list else []
+        except Exception as e:
+            print(f"[RECOVERABLE ERROR] Failed to parse Librarian JSON: {e}")
+            return []

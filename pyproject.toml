@@ -9,7 +9,7 @@ description = "An agentic application for reading and summarizing research paper
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
-    {name = "Brad", email = "brad@example.com"}
+    {name = "Brad", email = "bradschneider14@gmail.com"}
 ]
 dependencies = [
     "pydantic>=2.0.0",
