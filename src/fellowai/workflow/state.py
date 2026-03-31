@@ -9,3 +9,6 @@ class GraphState(TypedDict):
     error: Optional[str]
     human_decision: Optional[str]
     skip_research: Optional[bool]
+    engineering_output: Optional[dict]
+    revision_count: int
+    engineering_feedback: Optional[str]

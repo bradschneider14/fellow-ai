@@ -11,7 +11,9 @@ from pydantic import BaseModel
 class CitationList(BaseModel):
     citations: List[Citation]
 
-class Librarian:
+from fellowai.agents.base import BaseAgent
+
+class Librarian(BaseAgent):
     """
     Librarian extracts the most pertinent citations for the key findings.
     """
@@ -57,13 +59,8 @@ class Librarian:
         result = crew.kickoff()
         
         # Robustly extract JSON from the output
-        json_str = result.raw
-        match = re.search(r'(\{.*\})', result.raw, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-            
         try:
-            final_list = CitationList.model_validate_json(json_str)
+            final_list = self.result_to_json(result, CitationList)
             return final_list.citations if final_list else []
         except Exception as e:
             print(f"[RECOVERABLE ERROR] Failed to parse Librarian JSON: {e}")

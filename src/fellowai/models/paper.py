@@ -29,8 +29,18 @@ class ArchitecturalPlan(BaseModel):
     data_strategy: str
     model_implementation_plan: str
 
+class ReviewStatus(BaseModel):
+    is_approved: bool
+    feedback: str
+
+class EngineeringStatus(BaseModel):
+    project_slug: str
+    directory: str
+    status_message: str
+
 class ResearchProject(BaseModel):
     metadata: PaperMetadata
     summary: Optional[PaperSummary] = None
     report: Optional[FinalReport] = None
     architectural_plan: Optional[ArchitecturalPlan] = None
+    engineering_status: Optional[EngineeringStatus] = None

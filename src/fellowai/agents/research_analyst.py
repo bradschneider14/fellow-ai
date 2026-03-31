@@ -5,8 +5,9 @@ from crewai import Agent, Task, Crew
 from fellowai.llm import get_llm
 from fellowai.tools.pdf import get_pdf_tool
 from fellowai.models.paper import PaperSummary
+from fellowai.agents.base import BaseAgent
 
-class ResearchAnalyst:
+class ResearchAnalyst(BaseAgent):
     """
     ResearchAnalyst reads the paper and summarizes key findings.
     """
@@ -50,13 +51,8 @@ class ResearchAnalyst:
         result = crew.kickoff()
         
         # Robustly extract JSON from the output
-        json_str = result.raw
-        match = re.search(r'(\{.*\})', result.raw, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-            
         try:
-            summary = PaperSummary.model_validate_json(json_str)
+            summary = self.result_to_json(result, PaperSummary)
         except Exception as e:
             print(f"[RECOVERABLE ERROR] Failed to parse ResearchAnalyst JSON: {e}")
             # Low-fidelity fallback

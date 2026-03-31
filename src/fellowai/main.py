@@ -2,18 +2,48 @@ from crewai.events.utils.console_formatter import set_suppress_console_output
 import logging
 from fellowai.workflow.graph import app
 import os
+import sys
+import datetime
 from dotenv import load_dotenv
 
 # Load environment variables from .env file FIRST; Must happen before importing app!
 # This is because app imports llm, which imports os.environ
 load_dotenv()
 
+class TeeStream:
+    def __init__(self, stream, log_filename):
+        self.stream = stream
+        self.file = open(log_filename, 'a', encoding='utf-8')
+
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+        self.file.write(data)
+        self.file.flush()
+
+    def flush(self):
+        self.stream.flush()
+        self.file.flush()
+        
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
+def setup_logging():
+    os.makedirs(".runs", exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(".runs", f"run_{timestamp}.log")
+    
+    sys.stdout = TeeStream(sys.stdout, log_file)
+    sys.stderr = TeeStream(sys.stderr, log_file)
+    print(f"Logging initialized. Output is being saved to {log_file}")
 
 def main():
     if not os.environ.get("OPENAI_API_KEY") and not os.environ.get("XAI_API_KEY"):
         print("Please set the OPENAI_API_KEY or XAI_API_KEY environment variable to run the agents.")
         print("Example: export XAI_API_KEY='xai-...'")
         return
+
+    setup_logging()
 
     print("--- FellowAI: LangGraph + CrewAI Workflow ---")
 
@@ -69,6 +99,12 @@ def main():
             print(project.architectural_plan.data_strategy)
             print("\\n--- Model Implementation Plan ---")
             print(project.architectural_plan.model_implementation_plan)
+            
+        if project.engineering_status:
+            print("\\n=== ENGINEERING PROTOTYPE ===")
+            print(f"Project Slug: {project.engineering_status.project_slug}")
+            print(f"Directory: {project.engineering_status.directory}")
+            print(f"\\nStatus Message:\\n{project.engineering_status.status_message}")
 
 
 if __name__ == "__main__":

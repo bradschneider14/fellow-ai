@@ -5,8 +5,9 @@ from crewai import Agent, Task, Crew
 from fellowai.llm import get_llm
 from fellowai.tools.pdf import get_pdf_tool
 from fellowai.models.paper import PaperMetadata, FinalReport
+from fellowai.agents.base import BaseAgent
 
-class LabDirector:
+class LabDirector(BaseAgent):
     """
     LabDirector initiates projects, extracts metadata, and makes final recommendations.
     """
@@ -48,9 +49,7 @@ class LabDirector:
         crew = Crew(agents=[self.agent], tasks=[search_task, format_task], verbose=debug_mode)
         result = crew.kickoff()
         
-        match = re.search(r'\{.*\}', result.raw, re.DOTALL)
-        json_str = match.group(0) if match else result.raw
-        return PaperMetadata.model_validate_json(json_str)
+        return self.result_to_json(result, PaperMetadata)
 
     def make_recommendation(self, summary_text: str) -> FinalReport:
         analyze_task = Task(
@@ -84,13 +83,8 @@ class LabDirector:
         result = crew.kickoff()
         
         # Robustly extract JSON from the output
-        json_str = result.raw
-        match = re.search(r'(\{.*\})', result.raw, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-        
         try:
-            return FinalReport.model_validate_json(json_str)
+            return self.result_to_json(result, FinalReport)
         except Exception as e:
             print(f"[RECOVERABLE ERROR] Failed to parse LabDirector JSON: {e}")
             print(f"Raw output (may be truncated): {result.raw[:500]}...")

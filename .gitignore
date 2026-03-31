@@ -50,7 +50,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-.reports/
 
 # Environments
 .env
@@ -79,3 +78,7 @@ ipython_config.py
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+.runs/
+.projects/
+.reports/
