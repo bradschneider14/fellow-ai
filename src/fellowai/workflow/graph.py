@@ -9,6 +9,7 @@ from fellowai.agents.research_analyst import ResearchAnalyst
 from fellowai.agents.librarian import Librarian
 from fellowai.agents.research_architect import ResearchArchitect
 from fellowai.agents.engineering_team import EngineeringTeam
+from fellowai.agents.execution_agent import ExecutionAgent
 from fellowai.models.paper import ResearchProject
 
 NODE_INITIATE = "initiate"
@@ -18,9 +19,11 @@ NODE_RECOMMEND = "recommend"
 NODE_HUMAN_DECISION = "human_decision"
 NODE_ARCHITECTURAL_PLAN = "architectural_plan"
 NODE_ENGINEERING_TEAM = "engineering_team"
-NODE_REVIEW_TEAM = "review_team"
+NODE_EXECUTE = "execute_prototype"
+NODE_STATIC_REVIEW = "static_review"
+NODE_RUNTIME_REVIEW = "runtime_review"
 
-MAX_REVISIONS = 3
+MAX_RETRIES = 3
 
 # Initialize the agents (these hold the CrewAI configurations)
 lab_director = LabDirector()
@@ -28,6 +31,7 @@ research_analyst = ResearchAnalyst()
 librarian = Librarian()
 research_architect = ResearchArchitect()
 engineering_team = EngineeringTeam()
+execution_agent = ExecutionAgent()
 
 def slugify(text: str) -> str:
     return re.sub(r'[\W_]+', '_', text.lower()).strip('_')
@@ -58,10 +62,10 @@ def initiate_project_node(state: GraphState) -> GraphState:
             with open(report_path, 'r') as f:
                 json_data = f.read()
                 project = ResearchProject.model_validate_json(json_data)
-            return {"project": project, "local_pdf_path": local_path, "skip_research": True}
+            return {"project": project, "local_pdf_path": local_path, "skip_research": True, "static_retry_count": 0, "runtime_retry_count": 0}
     
     project = ResearchProject(metadata=metadata)
-    return {"project": project, "local_pdf_path": local_path, "skip_research": False, "revision_count": 0}
+    return {"project": project, "local_pdf_path": local_path, "skip_research": False, "static_retry_count": 0, "runtime_retry_count": 0}
 
 def route_after_initiate(state: GraphState) -> str:
     if state.get("skip_research"):
@@ -162,37 +166,98 @@ def engineering_team_node(state: GraphState) -> GraphState:
         
     return {"project": project, "engineering_output": {"status": "success"}}
 
-def review_team_node(state: GraphState) -> GraphState:
-    print("--- Node: Engineering Code Review ---")
+def execute_prototype_node(state: GraphState) -> GraphState:
+    print("--- Node: Execution Engine Running Prototype ---")
     project = state.get("project")
     slug = slugify(project.metadata.title)
     
-    # Review code
+    project_dir = os.path.join(os.getcwd(), ".projects", slug)
+    result = execution_agent.execute_prototype(project_dir=project_dir)
+    
+    from fellowai.models.paper import ExecutionResult
+    project.execution_result = ExecutionResult(**result)
+    
+    reports_dir = os.path.join(os.getcwd(), ".reports")
+    report_path = os.path.join(reports_dir, f"{slug}.json")
+    with open(report_path, 'w') as f:
+        f.write(project.model_dump_json(indent=2))
+        
+    return {"project": project, "execution_result": result}
+
+def static_review_node(state: GraphState) -> GraphState:
+    print("--- Node: Engineering Static Code Review ---")
+    project = state.get("project")
+    slug = slugify(project.metadata.title)
+    
+    # Static review (no logs yet)
     review_status = research_architect.review_code(slug, project.architectural_plan)
     
-    print(f"Review decision: {'APPROVED' if review_status.is_approved else 'REJECTED'}")
+    print(f"Static Review Decision: {'APPROVED' if review_status.is_approved else 'REJECTED'}")
     
-    # Increment revision count
-    current_revisions = state.get("revision_count", 0) + 1
+    # Increment static retry count only if rejected
+    current_retries = state.get("static_retry_count", 0)
+    if not review_status.is_approved:
+        current_retries += 1
     
     return {
-        "revision_count": current_revisions, 
+        "static_retry_count": current_retries, 
         "engineering_feedback": review_status.feedback,
         "engineering_output": {"status": "approved" if review_status.is_approved else "rejected"}
     }
 
-def route_after_review(state: GraphState) -> str:
+def route_after_static_review(state: GraphState) -> str:
     status = state.get("engineering_output", {}).get("status")
-    revision_count = state.get("revision_count", 0)
+    retry_count = state.get("static_retry_count", 0)
     
     if status == "approved":
-        print("Code approved! Ending workflow.")
-        return END
-    elif revision_count >= MAX_REVISIONS:
-        print(f"Max revisions ({MAX_REVISIONS}) reached. Ending workflow despite rejection.")
+        print("Pre-execution review approved! Proceeding to execution.")
+        return NODE_EXECUTE
+    elif retry_count >= MAX_RETRIES:
+        print(f"Max static retries ({MAX_RETRIES}) reached. Ending workflow without execution.")
         return END
     else:
-        print(f"Code rejected. Routing back to Engineering Team (Revision {revision_count}/{MAX_REVISIONS}).")
+        print(f"Code failed static review. Routing back to Engineering (Retry {retry_count}/{MAX_RETRIES}).")
+        return NODE_ENGINEERING_TEAM
+
+def runtime_review_node(state: GraphState) -> GraphState:
+    print("--- Node: Engineering Runtime Execution Review ---")
+    project = state.get("project")
+    slug = slugify(project.metadata.title)
+    
+    # Runtime review (using execution results)
+    exec_logs = state.get("execution_result")
+    
+    plan_with_logs = project.architectural_plan.model_copy()
+    if exec_logs:
+        plan_with_logs.model_implementation_plan += f"\n\n--- EXECUTION LOGS ---\nExit Code: {exec_logs['exit_code']}\nSuccess: {exec_logs['success']}\nLogs:\n{exec_logs['logs']}"
+    
+    review_status = research_architect.review_code(slug, plan_with_logs)
+    
+    print(f"Runtime Review Decision: {'APPROVED' if review_status.is_approved else 'REJECTED'}")
+    
+    # Increment runtime retry count only if rejected
+    current_retries = state.get("runtime_retry_count", 0)
+    if not review_status.is_approved:
+        current_retries += 1
+    
+    return {
+        "runtime_retry_count": current_retries, 
+        "engineering_feedback": review_status.feedback,
+        "engineering_output": {"status": "approved" if review_status.is_approved else "rejected"}
+    }
+
+def route_after_runtime_review(state: GraphState) -> str:
+    status = state.get("engineering_output", {}).get("status")
+    retry_count = state.get("runtime_retry_count", 0)
+    
+    if status == "approved":
+        print("Runtime review approved! Ending workflow.")
+        return END
+    elif retry_count >= MAX_RETRIES:
+        print(f"Max runtime retries ({MAX_RETRIES}) reached. Ending workflow despite issues.")
+        return END
+    else:
+        print(f"Execution failed or runtime review rejected. Routing back to Engineering (Retry {retry_count}/{MAX_RETRIES}).")
         return NODE_ENGINEERING_TEAM
 
 # Construct the graph
@@ -205,7 +270,9 @@ workflow.add_node(NODE_RECOMMEND, recommend_node)
 workflow.add_node(NODE_HUMAN_DECISION, human_decision_node)
 workflow.add_node(NODE_ARCHITECTURAL_PLAN, architectural_plan_node)
 workflow.add_node(NODE_ENGINEERING_TEAM, engineering_team_node)
-workflow.add_node(NODE_REVIEW_TEAM, review_team_node)
+workflow.add_node(NODE_EXECUTE, execute_prototype_node)
+workflow.add_node(NODE_STATIC_REVIEW, static_review_node)
+workflow.add_node(NODE_RUNTIME_REVIEW, runtime_review_node)
 
 # Define the flow
 workflow.add_edge(START, NODE_INITIATE)
@@ -215,8 +282,10 @@ workflow.add_edge(NODE_CITATIONS, NODE_RECOMMEND)
 workflow.add_edge(NODE_RECOMMEND, NODE_HUMAN_DECISION)
 workflow.add_conditional_edges(NODE_HUMAN_DECISION, route_after_human)
 workflow.add_edge(NODE_ARCHITECTURAL_PLAN, NODE_ENGINEERING_TEAM)
-workflow.add_edge(NODE_ENGINEERING_TEAM, NODE_REVIEW_TEAM)
-workflow.add_conditional_edges(NODE_REVIEW_TEAM, route_after_review)
+workflow.add_edge(NODE_ENGINEERING_TEAM, NODE_STATIC_REVIEW)
+workflow.add_conditional_edges(NODE_STATIC_REVIEW, route_after_static_review)
+workflow.add_edge(NODE_EXECUTE, NODE_RUNTIME_REVIEW)
+workflow.add_conditional_edges(NODE_RUNTIME_REVIEW, route_after_runtime_review)
 
 # Compile into a runnable
 app = workflow.compile()

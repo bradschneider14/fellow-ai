@@ -8,3 +8,4 @@ pypdf
 build
 pytest
 python-dotenv
+docker

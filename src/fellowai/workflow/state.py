@@ -10,5 +10,7 @@ class GraphState(TypedDict):
     human_decision: Optional[str]
     skip_research: Optional[bool]
     engineering_output: Optional[dict]
-    revision_count: int
+    execution_result: Optional[dict]
+    static_retry_count: int
+    runtime_retry_count: int
     engineering_feedback: Optional[str]

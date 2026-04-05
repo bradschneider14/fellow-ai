@@ -19,7 +19,8 @@ dependencies = [
     "langchain-openai",
     "langchain-community",
     "pypdf",
-    "python-dotenv"
+    "python-dotenv",
+    "docker"
 ]
 
 [project.optional-dependencies]

@@ -38,9 +38,15 @@ class EngineeringStatus(BaseModel):
     directory: str
     status_message: str
 
+class ExecutionResult(BaseModel):
+    exit_code: int
+    logs: str
+    success: bool
+
 class ResearchProject(BaseModel):
     metadata: PaperMetadata
     summary: Optional[PaperSummary] = None
     report: Optional[FinalReport] = None
     architectural_plan: Optional[ArchitecturalPlan] = None
     engineering_status: Optional[EngineeringStatus] = None
+    execution_result: Optional[ExecutionResult] = None
