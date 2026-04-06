@@ -20,7 +20,8 @@ dependencies = [
     "langchain-community",
     "pypdf",
     "python-dotenv",
-    "docker"
+    "docker",
+    "pika"
 ]
 
 [project.optional-dependencies]

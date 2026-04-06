@@ -9,3 +9,4 @@ build
 pytest
 python-dotenv
 docker
+pika
